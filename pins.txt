@@ -1,0 +1,12 @@
+GPIO0 = Wake enable, hold low while on
+GPIO1 = HX711 TX
+GPIO2 = HX711 RX
+GPIO3 = 
+GPIO4 = Blue Button
+GPIO5 = Yellow Button
+GPIO12 = MAX7219 CS
+GPIO13 = MAX7219 DIN
+GPIO14 = MAX7219 CLK
+GPIO15 = Blue LED
+GPIO16 = Yellow LED
+
