@@ -33,7 +33,7 @@ void setup() {
 	else {
 		ledMatrix.init();
 		ledMatrix.setRotation(true);
-		ledMatrix.setIntensity(4); // range is 0-15
+		ledMatrix.setIntensity(2); // range is 0-15
 		displayLoading(ledMatrix);
 	}
 
