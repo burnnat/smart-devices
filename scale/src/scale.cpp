@@ -4,7 +4,6 @@
 #define CALIBRATE false
 #define CALIBRATE_SAMPLES 25
 
-#define DISPLAY_NUMBER_OF_DEVICES 4
 #define DISPLAY_CS_PIN 1
 
 #define LOADCELL_DOUT_PIN 2
@@ -13,13 +12,23 @@
 #define LOADCELL_TARE_SAMPLES 20
 #define LOADCELL_WEIGHT_SAMPLES 5
 
+#define LED_BLUE_PIN 15
+#define LED_YELLOW_PIN 16
+
+#define BUTTON_BLUE_PIN 4
+#define BUTTON_YELLOW_PIN 5
+
 #define BLINK_PIN 0
 
-const String usernames[] = { "NAT", "ANNA" };
+String usernames[] = { "NAT", "ANNA" };
+byte ledPins[] = { LED_BLUE_PIN, LED_YELLOW_PIN };
+int buttonPins[] = { BUTTON_BLUE_PIN, BUTTON_YELLOW_PIN };
+
+unsigned int userCount = 2;
 unsigned int currentUser = 1;
 
 HX711 loadcell = HX711();
-LedMatrix ledMatrix = LedMatrix(DISPLAY_NUMBER_OF_DEVICES, DISPLAY_CS_PIN);
+Display display = Display(DISPLAY_CS_PIN, userCount, ledPins, usernames);
 
 void setup() {
 	pinMode(BLINK_PIN, OUTPUT);
@@ -31,10 +40,8 @@ void setup() {
 		Serial.println("Starting calibration...");
 	}
 	else {
-		ledMatrix.init();
-		ledMatrix.setRotation(true);
-		ledMatrix.setIntensity(2); // range is 0-15
-		displayLoading(ledMatrix);
+		display.init();
+		display.displayLoading();
 	}
 
 	// Set up load cell
@@ -48,7 +55,7 @@ void setup() {
 		loadcell.set_scale(LOADCELL_SCALE);
 	}
 
-	displayText(ledMatrix, usernames[currentUser]);
+	display.displayUser(currentUser);
 	delay(2500);
 }
 
@@ -66,7 +73,7 @@ void loop() {
 		}
 	}
 	else {
-		displayValue(ledMatrix, max(loadcell.get_units(LOADCELL_WEIGHT_SAMPLES), 0.0f));
+		display.displayValue(max(loadcell.get_units(LOADCELL_WEIGHT_SAMPLES), 0.0f));
 	}
 
 	digitalWrite(BLINK_PIN, LOW);

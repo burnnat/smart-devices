@@ -1,6 +1,22 @@
 #include <Arduino.h>
 #include "../lib/MAX7219LedMatrix/LedMatrix.h"
 
-void displayLoading(LedMatrix matrix);
-void displayText(LedMatrix matrix, String text);
-void displayValue(LedMatrix matrix, float value);
+class Display {
+	
+	public:
+		Display(byte matrixSelectPin, int userCount, byte userLedPins[], String userNames[]);
+
+		void init();
+
+		void displayLoading();
+		void displayUser(int user);
+		void displayValue(float value);
+
+	private:
+		LedMatrix _matrix;
+		int _userCount;
+		byte* _userLedPins;
+		String* _userNames;
+
+		void displayText(String text);
+};
