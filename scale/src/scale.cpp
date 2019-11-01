@@ -6,6 +6,7 @@
 
 #define DISPLAY_CS_PIN 1
 
+#define LOADCELL false
 #define LOADCELL_DOUT_PIN 2
 #define LOADCELL_SCK_PIN 12
 #define LOADCELL_SCALE -10970.0
@@ -44,15 +45,17 @@ void setup() {
 		display.displayLoading();
 	}
 
-	// Set up load cell
-	loadcell.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-	loadcell.tare(LOADCELL_TARE_SAMPLES);
+	if (LOADCELL) {
+		// Set up load cell
+		loadcell.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+		loadcell.tare(LOADCELL_TARE_SAMPLES);
 
-	if (CALIBRATE) {
-		loadcell.set_scale();
-	}
-	else {
-		loadcell.set_scale(LOADCELL_SCALE);
+		if (CALIBRATE) {
+			loadcell.set_scale();
+		}
+		else {
+			loadcell.set_scale(LOADCELL_SCALE);
+		}
 	}
 
 	display.displayUser(currentUser);
@@ -62,18 +65,23 @@ void setup() {
 void loop() {
 	digitalWrite(BLINK_PIN, HIGH);
 
-	if (CALIBRATE) {
-		if (loadcell.wait_ready_timeout(500)) {
-			float reading = loadcell.get_units(CALIBRATE_SAMPLES);
-			Serial.print("Reading: ");
-			Serial.println(reading, 2);
+	if (LOADCELL) {
+		if (CALIBRATE) {
+			if (loadcell.wait_ready_timeout(500)) {
+				float reading = loadcell.get_units(CALIBRATE_SAMPLES);
+				Serial.print("Reading: ");
+				Serial.println(reading, 2);
+			}
+			else {
+				Serial.println("HX711 not found.");
+			}
 		}
 		else {
-			Serial.println("HX711 not found.");
+			display.displayValue(max(loadcell.get_units(LOADCELL_WEIGHT_SAMPLES), 0.0f));
 		}
 	}
 	else {
-		display.displayValue(max(loadcell.get_units(LOADCELL_WEIGHT_SAMPLES), 0.0f));
+		display.displayError();
 	}
 
 	digitalWrite(BLINK_PIN, LOW);

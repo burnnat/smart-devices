@@ -77,3 +77,7 @@ void Display::displayUser(int user) {
 
 	displayText(_userNames[user]);
 }
+
+void Display::displayError() {
+	displayText("ERR");
+}
