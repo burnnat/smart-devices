@@ -19,20 +19,41 @@
 #define BUTTON_BLUE_PIN 4
 #define BUTTON_YELLOW_PIN 5
 
-#define BLINK_PIN 0
+#define ENABLE_PIN 0
 
 String usernames[] = { "NAT", "ANNA" };
 byte ledPins[] = { LED_BLUE_PIN, LED_YELLOW_PIN };
 int buttonPins[] = { BUTTON_BLUE_PIN, BUTTON_YELLOW_PIN };
 
-unsigned int userCount = 2;
-unsigned int currentUser = 1;
+int userCount = 2;
+int currentUser = -1;
+volatile int setUser = -1;
+
+ICACHE_RAM_ATTR void user1Select() {
+	setUser = 0;
+}
+
+ICACHE_RAM_ATTR void user2Select() {
+	setUser = 1;
+}
+
+typedef void (*Callback)();
+Callback interrupts[] = { user1Select, user2Select };
 
 HX711 loadcell = HX711();
 Display display = Display(DISPLAY_CS_PIN, userCount, ledPins, usernames);
 
 void setup() {
-	pinMode(BLINK_PIN, OUTPUT);
+	// Set up enable pin first, to prevent reset on button press
+	pinMode(ENABLE_PIN, OUTPUT);
+	digitalWrite(ENABLE_PIN, LOW);
+
+	// Set up buttons
+	for (int i = 0; i < userCount; i++) {
+		int pin = buttonPins[i];
+		pinMode(pin, INPUT_PULLUP);
+		attachInterrupt(digitalPinToInterrupt(pin), interrupts[i], RISING);
+	}
 
 	// Set up display
 	if (CALIBRATE) {
@@ -57,33 +78,46 @@ void setup() {
 			loadcell.set_scale(LOADCELL_SCALE);
 		}
 	}
+	else {
+		delay(1000);
+	}
 
-	display.displayUser(currentUser);
-	delay(2500);
+	display.displaySelect();
 }
 
 void loop() {
-	digitalWrite(BLINK_PIN, HIGH);
+	if (setUser > -1) {
+		bool update = setUser != currentUser;
+		currentUser = setUser;
+		setUser = -1;
 
-	if (LOADCELL) {
-		if (CALIBRATE) {
-			if (loadcell.wait_ready_timeout(500)) {
-				float reading = loadcell.get_units(CALIBRATE_SAMPLES);
-				Serial.print("Reading: ");
-				Serial.println(reading, 2);
+		if (update) {
+			display.displayUser(currentUser);
+			delay(2500);
+		}
+	}
+	else if (currentUser > -1) {
+		if (LOADCELL) {
+			if (CALIBRATE) {
+				if (loadcell.wait_ready_timeout(500)) {
+					float reading = loadcell.get_units(CALIBRATE_SAMPLES);
+					Serial.print("Reading: ");
+					Serial.println(reading, 2);
+				}
+				else {
+					Serial.println("HX711 not found.");
+				}
 			}
 			else {
-				Serial.println("HX711 not found.");
+				display.displayValue(max(loadcell.get_units(LOADCELL_WEIGHT_SAMPLES), 0.0f));
 			}
 		}
 		else {
-			display.displayValue(max(loadcell.get_units(LOADCELL_WEIGHT_SAMPLES), 0.0f));
+			display.displayError();
+			delay(10);
 		}
 	}
 	else {
-		display.displayError();
+		delay(10);
 	}
-
-	digitalWrite(BLINK_PIN, LOW);
-	delay(25);
 }

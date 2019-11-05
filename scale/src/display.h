@@ -11,6 +11,7 @@ class Display {
 		void displayLoading();
 		void displayUser(int user);
 		void displayValue(float value);
+		void displaySelect();
 		void displayError();
 
 	private:

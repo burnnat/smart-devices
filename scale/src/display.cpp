@@ -78,6 +78,10 @@ void Display::displayUser(int user) {
 	displayText(_userNames[user]);
 }
 
+void Display::displaySelect() {
+	displayText("USER");
+}
+
 void Display::displayError() {
 	displayText("ERR");
 }
