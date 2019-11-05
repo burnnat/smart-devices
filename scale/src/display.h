@@ -7,6 +7,7 @@ class Display {
 		Display(byte matrixSelectPin, int userCount, byte userLedPins[], String userNames[]);
 
 		void init();
+		void clear();
 
 		void displayLoading();
 		void displayUser(int user);

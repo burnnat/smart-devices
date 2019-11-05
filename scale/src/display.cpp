@@ -85,3 +85,8 @@ void Display::displaySelect() {
 void Display::displayError() {
 	displayText("ERR");
 }
+
+void Display::clear() {
+	_matrix.clear();
+	_matrix.commit();
+}

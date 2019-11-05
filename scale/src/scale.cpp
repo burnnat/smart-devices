@@ -21,6 +21,9 @@
 
 #define ENABLE_PIN 0
 
+#define WEIGHT_SUBMIT_COUNT 50
+#define IDLE_SLEEP_COUNT 100
+
 String usernames[] = { "NAT", "ANNA" };
 byte ledPins[] = { LED_BLUE_PIN, LED_YELLOW_PIN };
 int buttonPins[] = { BUTTON_BLUE_PIN, BUTTON_YELLOW_PIN };
@@ -28,6 +31,9 @@ int buttonPins[] = { BUTTON_BLUE_PIN, BUTTON_YELLOW_PIN };
 int userCount = 2;
 int currentUser = -1;
 volatile int setUser = -1;
+
+int idleCount = 0;
+int weightCount = 0;
 
 ICACHE_RAM_ATTR void user1Select() {
 	setUser = 0;
@@ -92,6 +98,9 @@ void loop() {
 		setUser = -1;
 
 		if (update) {
+			weightCount = 0;
+			idleCount = 0;
+
 			display.displayUser(currentUser);
 			delay(2500);
 		}
@@ -114,10 +123,26 @@ void loop() {
 		}
 		else {
 			display.displayError();
-			delay(10);
+			delay(100);
+		}
+
+		weightCount++;
+
+		if (weightCount >= WEIGHT_SUBMIT_COUNT) {
+			currentUser = -1;
+			display.displaySelect();
+			delay(1000);
 		}
 	}
 	else {
-		delay(10);
+		idleCount++;
+
+		if (idleCount >= IDLE_SLEEP_COUNT) {
+			display.clear();
+			ESP.deepSleep(0);
+		}
+		else {
+			delay(100);
+		}
 	}
 }
