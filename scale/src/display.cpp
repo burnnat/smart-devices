@@ -86,7 +86,19 @@ void Display::displayError() {
 	displayText("ERR");
 }
 
+void Display::displayBatteryWarning() {
+	displayText("LOW");
+	delay(1000);
+
+	displayText("BATT");
+	delay(1000);
+}
+
 void Display::clear() {
+	for (int i = 0; i < _userCount; i++) {
+		digitalWrite(_userLedPins[i], LOW);
+	}
+
 	_matrix.clear();
 	_matrix.commit();
 }

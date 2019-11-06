@@ -14,12 +14,17 @@
 #define LOADCELL_WEIGHT_SAMPLES 5
 
 #define LED_BLUE_PIN 15
-#define LED_YELLOW_PIN 16
+#define LED_YELLOW_PIN 16 // TODO: GPIO16 is high during sleep?
 
 #define BUTTON_BLUE_PIN 4
 #define BUTTON_YELLOW_PIN 5
 
 #define ENABLE_PIN 0
+
+// See battery voltage calculations here: https://learn.adafruit.com/using-ifttt-with-adafruit-io/arduino-code-2
+#define BATT_MAX_LEVEL 774
+#define BATT_LOW_LEVEL 600
+#define BATT_MIN_LEVEL 580
 
 #define WEIGHT_SUBMIT_COUNT 50
 #define IDLE_SLEEP_COUNT 100
@@ -72,8 +77,8 @@ void setup() {
 		display.displayLoading();
 	}
 
+	// Set up load cell
 	if (LOADCELL) {
-		// Set up load cell
 		loadcell.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
 		loadcell.tare(LOADCELL_TARE_SAMPLES);
 
@@ -85,6 +90,15 @@ void setup() {
 		}
 	}
 	else {
+		delay(1000);
+	}
+
+	// Check battery level
+	int level = analogRead(A0);
+
+	// TODO: submit battery level via MQTT
+	if (level < BATT_LOW_LEVEL) {
+		display.displayBatteryWarning();
 		delay(1000);
 	}
 
@@ -126,9 +140,11 @@ void loop() {
 			delay(100);
 		}
 
+		// TODO: only increment if weight is stable, otherwise set count to 0
 		weightCount++;
 
 		if (weightCount >= WEIGHT_SUBMIT_COUNT) {
+			// TODO: submit weight via MQTT
 			currentUser = -1;
 			display.displaySelect();
 			delay(1000);

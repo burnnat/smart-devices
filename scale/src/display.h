@@ -13,6 +13,7 @@ class Display {
 		void displayUser(int user);
 		void displayValue(float value);
 		void displaySelect();
+		void displayBatteryWarning();
 		void displayError();
 
 	private:
