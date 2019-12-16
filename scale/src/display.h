@@ -8,6 +8,7 @@ class Display {
 
 		void init();
 		void clear();
+		void shutdown();
 
 		void displayLoading();
 		void displayUser(int user);

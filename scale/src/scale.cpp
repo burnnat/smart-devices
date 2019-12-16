@@ -155,6 +155,7 @@ void loop() {
 
 		if (idleCount >= IDLE_SLEEP_COUNT) {
 			display.clear();
+			display.shutdown();
 			ESP.deepSleep(0);
 		}
 		else {

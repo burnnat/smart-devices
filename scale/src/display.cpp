@@ -22,6 +22,12 @@ void Display::init() {
 	_matrix.setIntensity(2); // range is 0-15
 }
 
+void Display::shutdown() {
+	for (byte device = 0; device < DISPLAY_NUMBER_OF_DEVICES; device++) {
+		_matrix.sendByte(device, MAX7219_REG_SHUTDOWN, 0);
+	}
+}
+
 void Display::displayLoading() {
 	_matrix.clear();
 
