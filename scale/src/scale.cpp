@@ -1,12 +1,14 @@
 #include "../lib/HX711/HX711.h"
 #include "display.h"
+#include "network.h"
+#include "secrets.h"
 
 #define CALIBRATE false
 #define CALIBRATE_SAMPLES 25
 
 #define DISPLAY_CS_PIN 1
 
-#define LOADCELL false
+#define LOADCELL true
 #define LOADCELL_DOUT_PIN 2
 #define LOADCELL_SCK_PIN 12
 #define LOADCELL_SCALE -10970.0
@@ -14,7 +16,7 @@
 #define LOADCELL_WEIGHT_SAMPLES 5
 
 #define LED_BLUE_PIN 15
-#define LED_YELLOW_PIN 16 // TODO: GPIO16 is high during sleep?
+#define LED_YELLOW_PIN 16
 
 #define BUTTON_BLUE_PIN 4
 #define BUTTON_YELLOW_PIN 5
@@ -26,7 +28,7 @@
 #define BATT_LOW_LEVEL 600
 #define BATT_MIN_LEVEL 580
 
-#define WEIGHT_SUBMIT_COUNT 50
+#define WEIGHT_SUBMIT_COUNT 10
 #define IDLE_SLEEP_COUNT 100
 
 String usernames[] = { "NAT", "ANNA" };
@@ -39,6 +41,7 @@ volatile int setUser = -1;
 
 int idleCount = 0;
 int weightCount = 0;
+float currentWeight = 0.0f;
 
 ICACHE_RAM_ATTR void user1Select() {
 	setUser = 0;
@@ -53,6 +56,7 @@ Callback interrupts[] = { user1Select, user2Select };
 
 HX711 loadcell = HX711();
 Display display = Display(DISPLAY_CS_PIN, userCount, ledPins, usernames);
+Network network = Network();
 
 void setup() {
 	// Set up enable pin first, to prevent reset on button press
@@ -75,6 +79,8 @@ void setup() {
 	else {
 		display.init();
 		display.displayLoading();
+
+		network.connect(SECRET_WIFI_SSID, SECRET_WIFI_PASSWORD);
 	}
 
 	// Set up load cell
@@ -93,10 +99,28 @@ void setup() {
 		delay(1000);
 	}
 
+	if (!CALIBRATE) {
+		net_status_t status;
+		
+		status = network.waitConnected(60000);
+
+		if (status != NET_SUCCESS) {
+			display.displayError(status);
+			return;
+		}
+
+		status = network.connectMqtt(SECRET_MQTT_HOST, SECRET_MQTT_PORT, SECRET_MQTT_USERNAME, SECRET_MQTT_PASSWORD, 2000);
+
+		if (status != NET_SUCCESS) {
+			display.displayError(status + 4);
+			return;
+		}
+	}
+
 	// Check battery level
 	int level = analogRead(A0);
+	network.submitBattery(level);
 
-	// TODO: submit battery level via MQTT
 	if (level < BATT_LOW_LEVEL) {
 		display.displayBatteryWarning();
 		delay(1000);
@@ -132,19 +156,40 @@ void loop() {
 				}
 			}
 			else {
-				display.displayValue(max(loadcell.get_units(LOADCELL_WEIGHT_SAMPLES), 0.0f));
+				float nextWeight = max(loadcell.get_units(LOADCELL_WEIGHT_SAMPLES), 0.0f);
+				display.displayValue(nextWeight);
+
+				float diff = currentWeight - nextWeight;
+				if (abs(diff) < 0.1f) {
+					weightCount++;
+				}
+				else {
+					weightCount = 0;
+				}
+
+				currentWeight = nextWeight;
 			}
 		}
 		else {
-			display.displayError();
+			display.displayError(3);
 			delay(100);
+			weightCount++;
 		}
 
-		// TODO: only increment if weight is stable, otherwise set count to 0
-		weightCount++;
-
 		if (weightCount >= WEIGHT_SUBMIT_COUNT) {
-			// TODO: submit weight via MQTT
+			network.submitWeight(usernames[currentUser], currentWeight);
+
+			// Blink display to indicate complete
+			display.clear();
+			delay(500);
+			display.displayValue(currentWeight);
+			delay(1000);
+			display.clear();
+			delay(500);
+			display.displayValue(currentWeight);
+			delay(2000);
+
+			// Reset to select user
 			currentUser = -1;
 			display.displaySelect();
 			delay(1000);

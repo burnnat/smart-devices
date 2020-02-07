@@ -88,8 +88,8 @@ void Display::displaySelect() {
 	displayText("USER");
 }
 
-void Display::displayError() {
-	displayText("ERR");
+void Display::displayError(int code) {
+	displayText("ERR" + String(code));
 }
 
 void Display::displayBatteryWarning() {

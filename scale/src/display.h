@@ -15,7 +15,7 @@ class Display {
 		void displayValue(float value);
 		void displaySelect();
 		void displayBatteryWarning();
-		void displayError();
+		void displayError(int code);
 
 	private:
 		LedMatrix _matrix;
