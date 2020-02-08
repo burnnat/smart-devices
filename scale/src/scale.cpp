@@ -5,10 +5,11 @@
 
 #define CALIBRATE false
 #define CALIBRATE_SAMPLES 25
+#define CALIBRATE_USERNAME "CALIBRATE"
 
 #define DISPLAY_CS_PIN 1
 
-#define LOADCELL true
+#define LOADCELL false
 #define LOADCELL_DOUT_PIN 2
 #define LOADCELL_SCK_PIN 12
 #define LOADCELL_SCALE -10970.0
@@ -56,7 +57,11 @@ Callback interrupts[] = { user1Select, user2Select };
 
 HX711 loadcell = HX711();
 Display display = Display(DISPLAY_CS_PIN, userCount, ledPins, usernames);
-Network network = Network();
+Network network = Network("SmartScale");
+
+int readBattery() {
+	return analogRead(A0);
+}
 
 void setup() {
 	// Set up enable pin first, to prevent reset on button press
@@ -70,18 +75,14 @@ void setup() {
 		attachInterrupt(digitalPinToInterrupt(pin), interrupts[i], RISING);
 	}
 
-	// Set up display
-	if (CALIBRATE) {
-		Serial.begin(9600);
-		Serial.println();
-		Serial.println("Starting calibration...");
-	}
-	else {
-		display.init();
-		display.displayLoading();
+	// Set up network
+	network.setupWifi(SECRET_WIFI_SSID, SECRET_WIFI_PASSWORD);
+	network.setupMqtt(SECRET_MQTT_HOST, SECRET_MQTT_PORT, SECRET_MQTT_USERNAME, SECRET_MQTT_PASSWORD);
+	network.connect(3, 30000);
 
-		network.connect(SECRET_WIFI_SSID, SECRET_WIFI_PASSWORD);
-	}
+	// Set up display
+	display.init();
+	display.displayLoading();
 
 	// Set up load cell
 	if (LOADCELL) {
@@ -99,29 +100,8 @@ void setup() {
 		delay(1000);
 	}
 
-	if (!CALIBRATE) {
-		net_status_t status;
-		
-		status = network.waitConnected(60000);
-
-		if (status != NET_SUCCESS) {
-			display.displayError(status);
-			return;
-		}
-
-		status = network.connectMqtt(SECRET_MQTT_HOST, SECRET_MQTT_PORT, SECRET_MQTT_USERNAME, SECRET_MQTT_PASSWORD, 2000);
-
-		if (status != NET_SUCCESS) {
-			display.displayError(status + 4);
-			return;
-		}
-	}
-
 	// Check battery level
-	int level = analogRead(A0);
-	network.submitBattery(level);
-
-	if (level < BATT_LOW_LEVEL) {
+	if (readBattery() < BATT_LOW_LEVEL) {
 		display.displayBatteryWarning();
 		delay(1000);
 	}
@@ -130,6 +110,13 @@ void setup() {
 }
 
 void loop() {
+	net_status_t status = network.status();
+	
+	if (status > NET_SUCCESS) {
+		display.displayError(status);
+		return;
+	}
+
 	if (setUser > -1) {
 		bool update = setUser != currentUser;
 		currentUser = setUser;
@@ -145,15 +132,22 @@ void loop() {
 	}
 	else if (currentUser > -1) {
 		if (LOADCELL) {
+			if (!loadcell.wait_ready_timeout(500)) {
+				// HX711 not found
+				display.displayError(9);
+			}
+			
 			if (CALIBRATE) {
-				if (loadcell.wait_ready_timeout(500)) {
-					float reading = loadcell.get_units(CALIBRATE_SAMPLES);
-					Serial.print("Reading: ");
-					Serial.println(reading, 2);
+				float reading = loadcell.get_units(CALIBRATE_SAMPLES);
+
+				net_status_t status = network.waitConnected();
+				
+				if (status > NET_SUCCESS) {
+					display.displayError(status);
+					return;
 				}
-				else {
-					Serial.println("HX711 not found.");
-				}
+
+				network.submitWeight(CALIBRATE_USERNAME, reading);
 			}
 			else {
 				float nextWeight = max(loadcell.get_units(LOADCELL_WEIGHT_SAMPLES), 0.0f);
@@ -168,31 +162,50 @@ void loop() {
 				}
 
 				currentWeight = nextWeight;
+
+				if (weightCount >= WEIGHT_SUBMIT_COUNT) {
+					net_status_t status = network.waitConnected();
+					
+					if (status > NET_SUCCESS) {
+						display.displayError(status);
+						return;
+					}
+
+					network.submitBattery(readBattery());
+					network.submitWeight(usernames[currentUser], currentWeight);
+
+					// Blink display to indicate complete
+					display.clear();
+					delay(500);
+					display.displayValue(currentWeight);
+					delay(1000);
+					display.clear();
+					delay(500);
+					display.displayValue(currentWeight);
+					delay(2000);
+
+					// Reset to select user
+					currentUser = -1;
+					display.displaySelect();
+				}
 			}
 		}
 		else {
-			display.displayError(3);
-			delay(100);
-			weightCount++;
-		}
+			net_status_t status = network.waitConnected();
+			
+			if (status > NET_SUCCESS) {
+				display.displayError(status);
+				return;
+			}
 
-		if (weightCount >= WEIGHT_SUBMIT_COUNT) {
-			network.submitWeight(usernames[currentUser], currentWeight);
+			display.displayError(0);
+			network.submitBattery(readBattery());
 
-			// Blink display to indicate complete
-			display.clear();
-			delay(500);
-			display.displayValue(currentWeight);
-			delay(1000);
-			display.clear();
-			delay(500);
-			display.displayValue(currentWeight);
-			delay(2000);
+			delay(4000);
 
 			// Reset to select user
 			currentUser = -1;
 			display.displaySelect();
-			delay(1000);
 		}
 	}
 	else {

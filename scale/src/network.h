@@ -3,29 +3,46 @@
 #include "../lib/PubSubClient/PubSubClient.h"
 
 typedef enum {
+	NET_PENDING = -1,
 	NET_SUCCESS = 0,
-	NET_TIMEOUT = 1,
-	NET_CONNECT_FAIL = 2,
-	NET_AUTH_FAIL = 3,
-	NET_UNAVAILABLE = 4
+	NET_WIFI_TIMEOUT = 1,
+	NET_WIFI_CONNECT_FAIL = 2,
+	NET_WIFI_AUTH_FAIL = 3,
+	NET_WIFI_UNAVAILABLE = 4,
+	NET_MQTT_TIMEOUT = 5
 } net_status_t;
 
 class Network {
 	
 	public:
-		Network();
+		Network(String mqttId);
 
-		void connect(String ssid, String password);
-		net_status_t waitConnected(unsigned long timeout);
+		void setupWifi(String ssid, String password);
+		void setupMqtt(String host, uint16_t port, String username, String password);
 
-		net_status_t connectMqtt(const char* host, uint16_t port, const char* username, const char* password, unsigned long timeout);
+		void connect(unsigned int retries, unsigned long timeout);
+		net_status_t status();
+		net_status_t waitConnected();
 
 		void submitBattery(int level);
 		void submitWeight(String user, float weight);
 
 	private:
+		String _wifiNetwork;
+		String _wifiPassword;
+
+		String _mqttId;
+		String _mqttUsername;
+		String _mqttPassword;
+
 		WiFiClient _netclient;
 		PubSubClient _client;
+		unsigned long _start;
+		unsigned long _timeout;
+
+		unsigned int _retryCount;
+		unsigned int _retryLimit;
+		net_status_t _wifiStatus();
 
 		void _publish(const char* topic, String payload, bool retained);
 };
